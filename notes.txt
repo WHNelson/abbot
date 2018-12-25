@@ -1,0 +1,69 @@
+What do I want the worker class to do
+
+1. I want it to be self contained - It should only be interfaced through a few sets of commands
+2. Inputs
+    A. data - to write. Should be a byte string, with a struct format. I think I want to define a protocol... or a couple protocols.
+3. Outputs - the worker class should read the data and present it to the main or manager class.
+    A. data - received.
+4. Signals
+    A. dataReady(tuple) - signaled when decoded/checked data is available. Not sure how to pass the data. I think it's fine to have it passed through the signals. Maybe within the manager class we use the event queue and then pass it back from the manager to main through a signal.
+    B. streamError(err.txt) - signaled to show if a data error has been found, or some other stream error. Should pass some sort of descriptive text like "CRC Error" or "Struct Errror". Errors of a certain type, like crc, we could keep track of in the status bar.
+    C. comClosed() - signals when the com port is closed.
+    D. comOpened() - signals when the com is comOpened
+    E. dataWritten() - signals when data has successfully been written. We may want to implement some sort of ACK/NACK response, but at the higher level
+5. Slots
+    A. setPort(str) - used to set the comport. can be called by openPort().
+    B. openPort() - will grab the port settings, open the port, and start the read loop
+    C. closePort() - will terminate the read loop, and relinquish the com port. Should return a comCloased signal.
+    D. read() - used to start the forever read loop. can be called by openPort() or after dataWrite()
+    D. write(packet) - used to start a terminating write loop. will pause the read loop, write to the end of the packet, and restart the read loop 
+
+6. protocols - For these we may want to have the Arduino send the packet format in the packet header, but maybe this is too much. If we just stick with (type, command, value) type structure, I think we'll be ok.
+    A. command - one to send commands to the arduino. This will do things like initiate routines, set variables, adjust timing, drive the motors. Should be something like:
+        1 byte - type (protocol)
+        1 byte - command
+        2 bytes - value
+    B. readSensor - I think we should make these smaller packets and just send one sensor value a time.
+        1 byte - type (protocol)
+        1 byte - register/sensor - this would be an id of the sensor we are getting data from
+        2 bytes - value
+  **C. readVariable - This would be for something longer...maybe a couple variables or something more. To make it simple, we'll just parse it on bytes...or maybe something else..dunno. Need to find a reason for This
+        1 byte - type (protocol)
+        1 byte - length n - to pass to struct.unpack()
+        n bytes - data string....maybe we do JSON type of deal with key:value pairs.. each key value would be a 2_byte(ascii) with a 2_byte int.
+    D. writeVariable - This would be for a longer, or unformated, write. Not sure we need this. But can be smething we implement later.
+        1 byte - type (protocol)
+        1 byte - length n - to pass to struct.unpack()
+        n bytes - data string.
+    D. packets - general packet format
+        1. Use '\x00' delimited COBS
+        2. Append extra byte for CRC-16 value prior to COBS encoding
+        3. Length - ??? Do we make these all predetermined lenge based on the "type", or what?
+            I'm thinking here that we may want to implement some sort of ACK/NACK for critical items. In that case the ACK/NACK payload would be like only a byte, say index of last valid data packet received.
+    What types of messages do we want to send/receive???
+        -> add sensor x to normal send loop
+        -> remove sensor x from normal send loop
+        -> get (one time) sensor x (could be digitalRead, analogRead)
+        -> set pin to value (could be digitalWrite, analogWrite, PWManalogWrite)
+        -> execute routine x
+        -> aribtrary get/set arbitrary in/output arbitrary value
+        => do we want some sort of packet ID so that we can request retransmit? I think we do, but this we can implement later
+
+7. Other notes:
+    A. transmit (arduino) interval? I think that we need to slow this bit down. Theres really no need to have the sensor readings back at the RasPi any faster that maybe 10/sec. I think we could use the Arduino processing time actually getting better quality data to send back.
+    B. arduino read buffer polling? I want to try to use the timer interrupts and poll the read buffer on the arduino only at only timing greater than about 10/sec.
+    C. packet - I think we need a packet class. Something that can encapsulate the read/write processes. With routines to track raw data, crc check it, and insert it into the packet struct format. Can be passed back on the signal as a struct so that the main() loop can parse it more easily.
+        Class interface:
+            write(struct)
+            read() -> struct data
+            opencom() -> 
+            closecom()
+
+            signals:
+                dataready(struct:data)
+                comstatus(bool:open/closed)
+                writefinished(bool:yes/no)
+                started()
+                finished()
+    D. Error code after installing Arduino pluggin...
+    Unable to start the C/C++ language server. IntelliSense features will be disabled. Error: Launching server using command /home/pi/.vscode-oss/extensions/ms-vscode.cpptools-0.20.1/bin/Microsoft.VSCode.CPP.Extension.linux failed.

@@ -1,0 +1,8 @@
+Steps to make a git repository and push files
+1. Make a project directory
+2. Inside the project direcotry create a "repository"
+	git init
+   This should create several files inlcuding a README.md that you should edit.
+   If you type 'ls -a .git' you should get something like
+	branches config description HEAD hooks info objects refs
+3. Add a file: 'git add README.md'. Add all files: 'git add --all'.
